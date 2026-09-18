@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>求职岗位跟踪表 - 北京</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'PingFang SC','Microsoft YaHei',sans-serif; background:#F4F3EE; color:#1A1B1C; padding:20px; }
+  .wrap { max-width:1280px; margin:0 auto; }
+  h1 { font-size:20px; font-weight:600; }
+  .sub { font-size:12px; color:#6B7280; margin-top:4px; }
+  .stats { display:flex; gap:12px; flex-wrap:wrap; margin:16px 0; }
+  .stat { flex:1 1 140px; background:#fff; border:1px solid #E4E3DD; border-radius:12px; padding:12px 16px; }
+  .stat .num { font-size:24px; font-weight:600; margin-top:4px; }
+  .stat .lab { font-size:12px; color:#6B7280; }
+  .stat.blue .num { color:#3B82F6; } .stat.green .num { color:#16A34A; } .stat.gray .num { color:#6B7280; } .stat.red .num { color:#DC2626; }
+  .toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:14px 0; }
+  .toolbar input[type=text], .toolbar select { padding:8px 10px; border:1px solid #D8D6CE; border-radius:8px; font-size:13px; background:#fff; }
+  .toolbar input[type=text] { min-width:200px; }
+  .btn { padding:8px 14px; border:1px solid #D8D6CE; border-radius:8px; background:#fff; font-size:13px; cursor:pointer; }
+  .btn:hover { background:#F0EFEA; }
+  .count-line { font-size:12px; color:#6B7280; margin-bottom:8px; }
+  .tbl-wrap { overflow-x:auto; background:#fff; border:1px solid #E4E3DD; border-radius:12px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; min-width:900px; }
+  th { background:#FAFAF7; text-align:left; padding:10px 12px; font-weight:600; font-size:12px; color:#6B7280; border-bottom:1px solid #E4E3DD; white-space:nowrap; cursor:pointer; user-select:none; }
+  th:hover { background:#F0EFEA; }
+  td { padding:9px 12px; border-bottom:1px solid #EFEEE9; vertical-align:top; }
+  tr:hover td { background:#FAF9F5; }
+  .cat { display:inline-block; font-size:11px; padding:2px 8px; border-radius:20px; white-space:nowrap; }
+  .cat-互联网 { background:rgba(139,200,234,.2); color:#1663A3; }
+  .cat-外企 { background:rgba(201,167,232,.2); color:#6D3FA3; }
+  .cat-央企国企 { background:rgba(228,212,143,.3); color:#8A6D1F; }
+  .cat-金融 { background:rgba(148,216,195,.25); color:#1F7A5C; }
+  .dl { white-space:nowrap; }
+  .dl.over { color:#9CA3AF; text-decoration:line-through; }
+  .dl.today { color:#DC2626; font-weight:600; }
+  .dl.soon { color:#EA580C; }
+  a.link { color:#2563EB; text-decoration:none; white-space:nowrap; }
+  a.link:hover { text-decoration:underline; }
+  .applied-row td { opacity:.55; }
+  input[type=checkbox] { width:16px; height:16px; cursor:pointer; accent-color:#3B82F6; }
+  .pos { font-weight:500; }
+  .empty { padding:40px; text-align:center; color:#9CA3AF; }
+  .foot { margin-top:16px; font-size:12px; color:#9CA3AF; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>求职岗位跟踪表</h1>
+  <div class="sub">北京 · 适合财务/审计/数据分析方向 · 每日 10:00 自动更新 · 勾选后状态自动保存</div>
+
+  <div class="stats">
+    <div class="stat blue"><div class="lab">岗位总数</div><div class="num" id="stTotal">0</div></div>
+    <div class="stat gray"><div class="lab">未投</div><div class="num" id="stOpen">0</div></div>
+    <div class="stat green"><div class="lab">已投</div><div class="num" id="stApplied">0</div></div>
+    <div class="stat red"><div class="lab">3天内截止</div><div class="num" id="stUrgent">0</div></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="kw" placeholder="搜索公司 / 岗位关键词…">
+    <select id="fCat">
+      <option value="">全部类别</option>
+      <option>互联网</option><option>外企</option><option>央企国企</option><option>金融</option>
+    </select>
+    <select id="fStatus">
+      <option value="">全部状态</option>
+      <option value="open">未投</option>
+      <option value="applied">已投</option>
+    </select>
+    <select id="fSort">
+      <option value="publish">按发布日期 ↓</option>
+      <option value="deadline">按截止日期 ↑</option>
+    </select>
+    <button class="btn" onclick="exportCSV()">导出 CSV</button>
+    <button class="btn" onclick="resetApplied()">清空勾选</button>
+  </div>
+
+  <div class="count-line">共 <span id="cnt">0</span> 条</div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:44px">已投</th>
+          <th>公司</th>
+          <th>岗位</th>
+          <th>类别</th>
+          <th>地点</th>
+          <th>薪资</th>
+          <th>发布日期</th>
+          <th>截止日期</th>
+          <th>原文链接</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="empty" style="display:none">没有符合条件的岗位</div>
+  </div>
+
+  <div class="foot">数据来源：各公司招聘官网 / 国聘网 / 智联 / 猎聘 / 前程无忧 / BOSS 等公开渠道，点击“原文链接”可核对。已投状态保存在本机浏览器，清除浏览器数据会丢失。定时任务每天 10:00 自动检索新岗位并更新本页。</div>
+</div>
+
+<script>
+// ===== 岗位数据（每日定时更新） =====
+var JOBS = [
+  {id:1,  company:"施耐德电气",  category:"外企",     position:"财务分析（官网北京岗位列表）",    location:"北京",     salary:"面议",        publish:"2026-09-16", deadline:"",        url:"https://careers.se.com/jobs/locations/city/Beijing", note:"来源：官网（北京66个在招岗位，可按Finance筛选）"},
+  {id:2,  company:"施耐德电气",  category:"外企",     position:"业务财务分析师/成本方向（官网列表）", location:"北京",     salary:"面议",        publish:"2026-09-16", deadline:"",        url:"https://careers.se.com/jobs/locations/city/Beijing", note:"来源：官网；原成本分析岗薪资为聚合数据，以官网为准"},
+  {id:3,  company:"中国电信北京公司", category:"央企国企", position:"财务类岗位（官网招聘入口）",     location:"北京",     salary:"面议",        publish:"2026-09-04", deadline:"",        url:"https://job.chinatelecom.com.cn", note:"来源：官网；集团社招含财务经理岗（北京）"},
+  {id:4,  company:"京东方",      category:"央企国企",  position:"核算会计岗-财务共享(J54504)",      location:"北京",     salary:"8-20K",        publish:"2026-09-07", deadline:"",        url:"https://career.boe.com/social/jobs", note:"来源：官网在招，9/7更新；同批有税务管理岗(J54503)"},
+  {id:5,  company:"北汽福田",    category:"央企国企",  position:"出口财务会计经理/税务会计（国聘）", location:"北京昌平", salary:"10-20K",        publish:"2026-08-27", deadline:"",        url:"https://www.iguopin.com/company/jobs?id=10685389340126529", note:"来源：国聘官方渠道，9/9更新"},
+  {id:6,  company:"智芯微电子（国网系）", category:"央企国企", position:"成本会计",           location:"北京昌平", salary:"10-20K",        publish:"2026-09-09", deadline:"",        url:"https://m.liepin.com/company/8536173/", note:"来源：聚合平台（猎聘）；官网未公开社招入口；本科3年可投"},
+  {id:7,  company:"智芯微电子（国网系）", category:"央企国企", position:"总账会计",           location:"北京昌平", salary:"10-20K",        publish:"2026-09-09", deadline:"",        url:"https://m.liepin.com/company/8536173/", note:"来源：聚合平台（猎聘）；本科3年可投"},
+  {id:8,  company:"滴滴",        category:"互联网",   position:"大模型业务财务分析专家",         location:"北京",     salary:"面议",        publish:"2026-09-17", deadline:"",        url:"https://talent.didiglobal.com/social/p/56286", note:"来源：官网详情页，9/17更新"},
+  {id:9,  company:"滴滴",        category:"互联网",   position:"自动驾驶商业化运营财务管理",     location:"北京",     salary:"面议",        publish:"2026-09-09", deadline:"",        url:"https://talent.didiglobal.com/social/p/65273", note:"来源：官网详情页，9/9更新"},
+  {id:10, company:"字节跳动",    category:"互联网",   position:"财务BP-国际化广告",             location:"北京",     salary:"面议",        publish:"2026-08-14", deadline:"",        url:"https://jobs.bytedance.com/experienced/m/position/detail/7667776605482256693", note:"来源：官网详情页"},
+  {id:11, company:"字节跳动",    category:"互联网",   position:"财务BP（POI方向）-国际化生活服务", location:"北京",     salary:"面议",        publish:"2026-09-16", deadline:"",        url:"https://jobs.bytedance.com/experienced/m", note:"来源：官网社招列表（职位ID A147012），另有财务BP-国际化直播"},
+  {id:12, company:"快手",        category:"互联网",   position:"经营分析师-【主站】",           location:"北京",     salary:"面议",        publish:"2026-09-16", deadline:"",        url:"https://zhaopin.kuaishou.cn/top/#/official/social/", note:"来源：官网列表页，9/16更新"},
+  {id:13, company:"小米",        category:"互联网",   position:"新业务财务BP",                 location:"北京",     salary:"面议",        publish:"2026-09-04", deadline:"",        url:"https://xiaomi.jobs.f.mioffice.cn/index/m/position/7490752164571824237/detail", note:"来源：官网详情页，9/4更新，5年+经验"},
+  {id:14, company:"京东集团",    category:"互联网",   position:"财务/经营分析（官网招聘入口）",  location:"北京",     salary:"面议",        publish:"2026-09-16", deadline:"",        url:"https://zhaopin.jd.com/home?cooperationId=6", note:"来源：官网招聘首页"},
+  {id:15, company:"亚马逊",      category:"外企",     position:"Business Analyst（官网北京列表）", location:"北京",    salary:"面议",        publish:"2026-08-25", deadline:"",        url:"https://www.amazon.jobs/content/zh/locations/china/beijing", note:"来源：官网北京职位列表"},
+  {id:16, company:"西门子",      category:"外企",     position:"财务类岗位（官网职位列表）",      location:"北京",     salary:"面议",        publish:"2026-09-16", deadline:"",        url:"https://jobs.siemens.com.cn/siemens/position/index", note:"来源：官网职位列表（210个职位含财务类，9/16更新）"},
+  {id:17, company:"德勤",        category:"外企",     position:"M&A财务尽调数据分析经理",        location:"北京",     salary:"面议",        publish:"2026-09-16", deadline:"",        url:"https://apply.deloitte.com/en_US/careers/JobDetail/M-A-Financial-Due-Diligence-Data-Analytics-Manager-LSHC/357327", note:"来源：官网详情页，9/16更新，要求Tableau/Alteryx等"},
+  {id:18, company:"毕马威",      category:"外企",     position:"流程数字化高级顾问-数字化赋能",   location:"北京东城", salary:"11-22K",        publish:"2026-09-07", deadline:"",        url:"https://m.zhipin.com/zhaopin/6fec05caec774d2933V_3dw~/", note:"来源：聚合平台（BOSS）；官网未收录详情页，投递前建议到kpmg.com.cn核实"},
+  {id:19, company:"特斯拉",      category:"外企",     position:"Sr. Revenue Accountant（收入会计）", location:"北京", salary:"面议",        publish:"2026-09-14", deadline:"",        url:"https://www.tesla.cn/careers/job/sr-revenueaccountant-55211", note:"来源：官网详情页，Req 55211"},
+  {id:20, company:"中粮集团",    category:"央企国企",  position:"集团审计部境内审计专员",         location:"北京朝阳", salary:"面议",        publish:"2026-09-03", deadline:"2026-09-17", url:"https://news.bjd.com.cn/2026/09/03/11944860.shtml", note:"来源：官方公告；今天9/17截止，投递 recruit@cofco.com"},
+  {id:21, company:"中粮油脂",    category:"央企国企",  position:"审计专员",                     location:"北京朝阳", salary:"12-17K·13薪", publish:"2026-08-25", deadline:"",        url:"https://msearch.51job.com/jobs/beijing/173051786.html", note:"来源：聚合平台（51job）"},
+  {id:22, company:"中粮国际（北京）", category:"央企国企", position:"财务负责人",            location:"北京朝阳", salary:"面议",        publish:"2026-08-27", deadline:"",        url:"https://www.iguopin.com/job/detail?id=203123508354483009", note:"来源：国聘官方，5年以上制造业/供应链经验优先"},
+  {id:23, company:"中意人寿",    category:"金融",     position:"偿付能力及数据管理岗",           location:"北京朝阳", salary:"面议",        publish:"2026-09-11", deadline:"",        url:"https://www.generalichina.com/Goos/index.html", note:"来源：官网空缺职位页；岗位详情见智联（9/11更新）"},
+  {id:24, company:"长城人寿",    category:"金融",     position:"分析岗（多数要求硕士）",         location:"北京西城", salary:"10-20K",        publish:"2026-09-17", deadline:"",        url:"https://mmq.51job.com/i2195/co3750698/", note:"来源：聚合平台（51job）；企划经营分析/健康险数据分析岗均要求硕士，谨慎"},
+  {id:25, company:"美团",        category:"互联网",   position:"商业分析师-业务BP",              location:"北京",     salary:"面议",        publish:"2026-09-07", deadline:"",        url:"https://zhaopin.meituan.com/web/position/detail?jobUnionId=4640769408", note:"来源：官网详情页，3年经验"},
+  {id:26, company:"腾讯",        category:"互联网",   position:"腾讯视频-项目风控（财务）",      location:"北京",     salary:"面议",        publish:"2026-09-17", deadline:"",        url:"https://hr.tencent.com/m/zh-cn/cityinfo.html?city=2", note:"来源：官网城市页，PCG财务，9/17更新"},
+  {id:27, company:"百度",        category:"互联网",   position:"财务分析师（预算组）",            location:"北京海淀", salary:"16-27K",        publish:"2026-09-14", deadline:"",        url:"https://talent.baidu.com", note:"来源：官网入口；岗位编号j67429，可在官网搜索"},
+  {id:28, company:"中电科技国际贸易", category:"央企国企", position:"财税管理岗（社招）",        location:"北京",     salary:"16-25K",        publish:"2026-09-14", deadline:"2026-12-12", url:"https://www.iguopin.com/job/detail?id=218077917500933672", note:"来源：国聘官方，本科3-5年，税务/审计/金融专业"},
+  {id:29, company:"中粮油脂",    category:"央企国企",  position:"财务部财务专员",                 location:"北京朝阳", salary:"15-25万/年",   publish:"2026-09-17", deadline:"",        url:"https://jobs.51job.com/beijing-cyq/coUjBXMQNlBD8EZgNgAGI.html", note:"来源：中粮官方招聘页（51job），3年+本科"},
+  {id:30, company:"中粮集团",    category:"央企国企",  position:"税务专员",                       location:"北京朝阳", salary:"12-15K",        publish:"2026-09-17", deadline:"",        url:"https://jobs.51job.com/beijing-cyq/coUjBXMQNlBD8EZgNgAGI.html", note:"来源：中粮官方招聘页（51job），2年+本科"},
+  {id:31, company:"中粮集团",    category:"央企国企",  position:"集团审计部审计数智化管理岗",     location:"北京朝阳", salary:"面议",        publish:"2026-08-19", deadline:"",        url:"https://xinwen.bjd.com.cn/content/s6a8538a0e4b0e45f3fd63652.html", note:"来源：京报网官方公告，审计+数智化方向"},
+  {id:32, company:"普华永道",    category:"外企",     position:"转让定价-顾问/高级顾问",         location:"北京朝阳", salary:"12-14K",        publish:"2026-09-14", deadline:"",        url:"https://m.liepin.com/company-jobs/7867304/jc-N19/", note:"来源：聚合平台（猎聘），1-3年统招本科"}
+];
+
+var LS_PREFIX = 'job_applied_';
+function getApplied(id){ return localStorage.getItem(LS_PREFIX+id) === '1'; }
+function setApplied(id, v){ localStorage.setItem(LS_PREFIX+id, v?'1':'0'); render(); }
+
+function todayStr(){
+  var d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function diffDays(deadline){
+  var t = new Date(todayStr()).getTime(), d = new Date(deadline).getTime();
+  return Math.round((d - t) / 86400000);
+}
+function dlClass(dl){
+  if(!dl) return '';
+  var n = diffDays(dl);
+  if(n < 0) return 'over';
+  if(n === 0) return 'today';
+  if(n <= 3) return 'soon';
+  return '';
+}
+function dlText(dl){
+  if(!dl) return '未注明';
+  var n = diffDays(dl);
+  if(n < 0) return dl + '（已截止）';
+  if(n === 0) return dl + '（今天截止）';
+  return dl + '（剩'+n+'天）';
+}
+
+function filtered(){
+  var kw = document.getElementById('kw').value.trim().toLowerCase();
+  var cat = document.getElementById('fCat').value;
+  var st = document.getElementById('fStatus').value;
+  var sort = document.getElementById('fSort').value;
+  var arr = JOBS.filter(function(j){
+    if(cat && j.category !== cat) return false;
+    if(st === 'applied' && !getApplied(j.id)) return false;
+    if(st === 'open' && getApplied(j.id)) return false;
+    if(kw){
+      var hay = (j.company + ' ' + j.position + ' ' + j.location + ' ' + (j.note||'')).toLowerCase();
+      if(hay.indexOf(kw) < 0) return false;
+    }
+    return true;
+  });
+  arr.sort(function(a,b){
+    if(sort === 'deadline'){
+      var da = a.deadline||'9999', db = b.deadline||'9999';
+      return da < db ? -1 : da > db ? 1 : b.publish.localeCompare(a.publish);
+    }
+    return b.publish.localeCompare(a.publish);
+  });
+  return arr;
+}
+
+function render(){
+  var arr = filtered();
+  var tbody = document.getElementById('tbody');
+  var html = '';
+  arr.forEach(function(j){
+    var applied = getApplied(j.id);
+    var dlCls = dlClass(j.deadline);
+    html += '<tr class="'+(applied?'applied-row':'')+'">'
+      + '<td><input type="checkbox" '+(applied?'checked':'')+' onclick="setApplied('+j.id+', this.checked)"></td>'
+      + '<td><b>'+j.company+'</b>'+(j.note?'<br><span style="font-size:11px;color:#6B7280">'+j.note+'</span>':'')+'</td>'
+      + '<td class="pos">'+j.position+'</td>'
+      + '<td><span class="cat cat-'+j.category+'">'+j.category+'</span></td>'
+      + '<td>'+j.location+'</td>'
+      + '<td>'+j.salary+'</td>'
+      + '<td style="white-space:nowrap">'+j.publish+'</td>'
+      + '<td class="dl '+dlCls+'">'+dlText(j.deadline)+'</td>'
+      + '<td><a class="link" href="'+j.url+'" target="_blank" rel="noopener">查看原文 ↗</a></td>'
+      + '</tr>';
+  });
+  tbody.innerHTML = html;
+  document.getElementById('empty').style.display = arr.length ? 'none' : 'block';
+  document.getElementById('cnt').textContent = arr.length;
+
+  var total = JOBS.length, appliedN = 0, urgentN = 0;
+  JOBS.forEach(function(j){
+    if(getApplied(j.id)) appliedN++;
+    if(j.deadline){ var n = diffDays(j.deadline); if(n >= 0 && n <= 3) urgentN++; }
+  });
+  document.getElementById('stTotal').textContent = total;
+  document.getElementById('stApplied').textContent = appliedN;
+  document.getElementById('stOpen').textContent = total - appliedN;
+  document.getElementById('stUrgent').textContent = urgentN;
+}
+
+function exportCSV(){
+  var rows = [['已投','公司','岗位','类别','地点','薪资','发布日期','截止日期','原文链接']];
+  JOBS.forEach(function(j){
+    rows.push([getApplied(j.id)?'是':'否', j.company, j.position, j.category, j.location, j.salary, j.publish, j.deadline||'', j.url]);
+  });
+  var csv = '\ufeff' + rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\n');
+  var a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = '求职岗位跟踪表_'+todayStr()+'.csv';
+  a.click();
+}
+function resetApplied(){
+  if(!confirm('确认清空所有已投勾选？')) return;
+  JOBS.forEach(function(j){ localStorage.removeItem(LS_PREFIX+j.id); });
+  render();
+}
+
+document.getElementById('kw').addEventListener('input', render);
+document.getElementById('fCat').addEventListener('change', render);
+document.getElementById('fStatus').addEventListener('change', render);
+document.getElementById('fSort').addEventListener('change', render);
+
+render();
+</script>
+</body>
+</html>
