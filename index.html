@@ -73,6 +73,7 @@
       <option value="deadline">按截止日期 ↑</option>
     </select>
     <button class="btn" onclick="exportCSV()">导出 CSV</button>
+    <button class="btn" onclick="cloudSync()">云端同步</button>
     <button class="btn" onclick="resetApplied()">清空勾选</button>
   </div>
 
@@ -206,7 +207,7 @@ var JOBS = [
 
 var LS_PREFIX = 'job_applied_';
 function getApplied(id){ return localStorage.getItem(LS_PREFIX+id) === '1'; }
-function setApplied(id, v){ localStorage.setItem(LS_PREFIX+id, v?'1':'0'); render(); }
+function setApplied(id, v){ localStorage.setItem(LS_PREFIX+id, v?'1':'0'); render(); schedulePush(); }
 
 function todayStr(){
   var d = new Date();
@@ -305,7 +306,86 @@ function exportCSV(){
 function resetApplied(){
   if(!confirm('确认清空所有已投勾选？')) return;
   JOBS.forEach(function(j){ localStorage.removeItem(LS_PREFIX+j.id); });
-  render();
+  render(); schedulePush();
+}
+
+/* ---- 云端同步：已投状态实时存到 GitHub 仓库 applied.json，跨浏览器自动恢复 ---- */
+var SYNC = { owner:'Sanmuhe-chen', repo:'job-tracker', path:'applied.json', token:null, sha:null, timer:null };
+function ghApi(method, body){
+  var url = 'https://api.github.com/repos/' + SYNC.owner + '/' + SYNC.repo + '/contents/' + SYNC.path;
+  var opt = { method: method, headers: { 'Accept': 'application/vnd.github+json' } };
+  if(SYNC.token) opt.headers['Authorization'] = 'Bearer ' + SYNC.token;
+  if(body){ opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  return fetch(url, opt).then(function(r){
+    if(!r.ok) return r.json().then(function(e){ throw new Error((e && e.message) || r.status); });
+    return r.json();
+  });
+}
+function getCloud(){
+  return ghApi('GET').then(function(d){
+    SYNC.sha = d.sha;
+    try{ return JSON.parse(atob(d.content)); }catch(e){ return null; }
+  }).catch(function(e){
+    if(String(e.message).indexOf('Not Found') >= 0){ SYNC.sha = null; return null; }
+    throw e;
+  });
+}
+function localMap(){
+  var m = {};
+  JOBS.forEach(function(j){ if(getApplied(j.id)) m[j.id] = true; });
+  return m;
+}
+function applyToLocal(data){
+  if(!data || !data.applied) return;
+  var ids = {};
+  JOBS.forEach(function(j){ ids[j.id] = true; });
+  Object.keys(data.applied).forEach(function(k){
+    var id = parseInt(k, 10);
+    if(ids[id] && data.applied[k] === true) localStorage.setItem(LS_PREFIX+id, '1');
+  });
+}
+function loadCloud(){
+  getCloud().then(function(data){
+    if(data){ applyToLocal(data); render(); }
+  }).catch(function(){ /* 网络失败则保留本地勾选 */ });
+}
+function pushCloud(){
+  SYNC.token = localStorage.getItem('gh_token');
+  if(!SYNC.token){
+    var t = prompt('云端同步需要 GitHub 访问令牌（把已投状态写入你的 job-tracker 仓库）。\n\n创建：GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens → 仓库仅选 Sanmuhe-chen/job-tracker，权限只勾 Contents: Read and write。\n\n令牌只保存在当前浏览器，换浏览器后在此再粘贴一次即可，勾选记录会自动从云端恢复。');
+    if(!t) return;
+    SYNC.token = t.trim();
+    localStorage.setItem('gh_token', SYNC.token);
+  }
+  var mine = localMap();
+  getCloud().then(function(cloud){
+    if(cloud && cloud.applied){ // 写前合并云端（其他浏览器勾选的保留），避免覆盖丢失
+      var ids = {};
+      JOBS.forEach(function(j){ ids[j.id] = true; });
+      Object.keys(cloud.applied).forEach(function(k){
+        var id = parseInt(k, 10);
+        if(ids[id] && cloud.applied[k] === true && !mine[id]) mine[id] = true;
+      });
+      applyToLocal(cloud);
+    }
+    var payload = { message: 'sync applied ' + new Date().toISOString(), content: btoa(JSON.stringify({ version:1, applied: mine })) };
+    if(SYNC.sha) payload.sha = SYNC.sha;
+    return ghApi('PUT', payload);
+  }).then(function(d){
+    SYNC.sha = (d.content && d.content.sha) || null;
+  }).catch(function(){
+    if(SYNC.sha){ SYNC.sha = null; setTimeout(pushCloud, 800); } // sha 过期重试
+  });
+}
+function schedulePush(){
+  if(SYNC.timer) clearTimeout(SYNC.timer);
+  SYNC.timer = setTimeout(pushCloud, 1500);
+}
+function cloudSync(){
+  var t = prompt('输入 GitHub 访问令牌（可留空：仅从云端拉取已投状态，不写入）。\n令牌仅保存在当前浏览器 localStorage。');
+  if(t && t.trim()){ SYNC.token = t.trim(); localStorage.setItem('gh_token', SYNC.token); }
+  loadCloud();
+  if(SYNC.token) pushCloud();
 }
 
 document.getElementById('kw').addEventListener('input', render);
@@ -314,6 +394,7 @@ document.getElementById('fStatus').addEventListener('change', render);
 document.getElementById('fSort').addEventListener('change', render);
 
 render();
+loadCloud(); // 页面加载时从云端恢复已投状态（公开读取，无需令牌）
 </script>
 </body>
 </html>
